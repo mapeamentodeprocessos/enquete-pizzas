@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pizzas – Funcional K</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;800&family=Paytone+One&display=swap" rel="stylesheet">
+<style>
+/* VOICE: cardápio de pizzaria, caloroso e divertido
+   IDEA: o próprio cardápio marrom vira cédula de votação e comanda do pedido
+   PICTURE: placar ao vivo e comanda final ao lado, barras que enchem como queijo
+   COLOUR and TYPE: marrom chocolate, bege, tomate; Paytone One + Lexend
+   LAYOUT: cédula à esquerda, placar + pedido fixos à direita; empilha no celular */
+:root{color-scheme:light dark;
+--bg:light-dark(#7a4a35,#3a2219);--card:light-dark(#efece8,#26170f);--ink:light-dark(#2b1a12,#f2e6d6);
+--muted:light-dark(#6b5345,#c4ab95);--beige:#ead9c0;--acc:#d8452c;--bar:light-dark(#f3c96b,#c98f2a);--line:light-dark(#d9d2ca,#4a3226);--ok:light-dark(#23773d,#6fd08c)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Lexend,system-ui,sans-serif;overflow-x:clip;
+background-image:radial-gradient(circle at 10% 20%,rgba(234,217,192,.08) 0 2px,transparent 3px);background-size:38px 38px}
+header{padding:clamp(28px,5vw,52px) max(5vw,16px) 8px;text-align:center;color:var(--beige)}
+h1{font:400 clamp(32px,7vw,54px)/1.05 "Paytone One",sans-serif;margin:0;text-wrap:balance}
+header p{margin:10px auto 0;max-width:58ch;color:#e9d6bf}
+.status{display:inline-block;margin-top:12px;font-size:13px;padding:6px 14px;border-radius:99px;background:rgba(0,0,0,.22);color:var(--beige)}
+.jump{display:none;margin:10px auto 0;color:var(--beige);font-size:14px}
+main{max-width:1240px;margin:0 auto;padding:20px max(5vw,16px) 56px;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:24px;align-items:start}
+@media(max-width:860px){main{grid-template-columns:minmax(0,1fr)}.jump{display:inline-block}}
+.card{background:var(--card);border-radius:28px;padding:clamp(20px,3vw,32px);box-shadow:0 18px 40px rgba(0,0,0,.25)}
+h2{font:400 clamp(24px,4vw,32px)/1.05 "Paytone One",sans-serif;margin:0}
+.q{margin:6px 0 4px;color:var(--muted)}
+.ballot section+section,.finish{margin-top:28px;padding-top:24px;border-top:2px dashed var(--line)}
+.grp{font:800 14px/1 Lexend,sans-serif;color:var(--acc);margin:20px 0 8px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.grp span:last-child{color:var(--muted);font-weight:400;white-space:nowrap}
+.opts{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.opt{display:block;width:100%;min-height:48px;padding:10px 14px;border:2px solid var(--line);border-radius:14px;background:transparent;color:var(--ink);text-align:left;cursor:pointer;font:inherit;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--muted)}
+.opt:focus-visible,button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.opt b{display:block;font-weight:600;line-height:1.25}
+.opt small{display:block;font-size:13px;color:var(--muted);line-height:1.35;margin-top:3px}
+.opt[aria-pressed=true]{border-color:var(--acc);background:rgba(216,69,44,.1)}
+.opt[aria-pressed=true] b::after{content:" ✓";color:var(--acc)}
+.picks{font-size:15px;color:var(--muted);margin:6px 0 14px}
+.picks b{color:var(--ink)}
+.mine-note{padding:10px 14px;border-radius:12px;background:rgba(216,69,44,.1);font-size:14px;margin:0 0 14px}
+.fields{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:12px}
+.fields.solo{grid-template-columns:minmax(0,1fr)}
+label{display:block;font-weight:600;margin-bottom:6px;font-size:15px}
+input{width:100%;font:16px Lexend,sans-serif;padding:12px 14px;border-radius:12px;border:2px solid var(--line);background:transparent;color:var(--ink);min-height:48px}
+.hint{font-size:13px;color:var(--muted);margin:6px 0 0}
+.btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.send{flex:1 1 220px;min-height:52px;border:0;border-radius:14px;background:var(--acc);color:#fff;font:800 17px Lexend,sans-serif;cursor:pointer}
+.ghost{flex:0 1 auto;min-height:52px;padding:0 18px;border:2px solid var(--line);border-radius:14px;background:transparent;color:var(--ink);font:600 15px Lexend,sans-serif;cursor:pointer}
+.send:disabled,.ghost:disabled{opacity:.5;cursor:not-allowed}
+.msg{margin-top:12px;font-size:14px;min-height:1.4em}
+.msg.ok{color:var(--ok)}.msg.err{color:var(--acc)}
+.side{display:grid;gap:24px;position:sticky;top:76px;max-height:calc(100vh - 92px);overflow-y:auto;border-radius:28px}
+html{scroll-behavior:smooth;scroll-padding-top:76px}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+.topbar{position:sticky;top:0;z-index:10;display:flex;gap:6px;align-items:center;padding:10px max(5vw,16px);background:rgba(43,26,18,.92);backdrop-filter:blur(6px);overflow-x:auto}
+.topbar a,.topbar button{flex:none;display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border-radius:99px;color:var(--beige);text-decoration:none;font:600 14px Lexend,sans-serif;border:2px solid rgba(234,217,192,.35);background:transparent;cursor:pointer}
+.topbar a.home{border-color:transparent;padding-left:4px}
+.topbar a.cur{background:var(--beige);color:#2b1a12;border-color:var(--beige)}
+.steps{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px;font-size:14px;color:var(--muted)}
+.steps span{padding:6px 12px;border-radius:99px;border:1px solid var(--line)}
+.steps b{color:var(--acc)}
+.back{margin-top:14px;width:100%}
+.after{display:none;margin-top:10px}
+.after.on{display:flex}
+@media(max-width:860px){.side{position:static;max-height:none;overflow:visible}}
+h3{font:800 15px Lexend,sans-serif;margin:20px 0 4px;display:flex;justify-content:space-between;gap:8px}
+h3 span{color:var(--muted);font-weight:400;white-space:nowrap}
+.row{position:relative;display:flex;gap:8px;justify-content:space-between;padding:7px 10px;margin:4px 0;border-radius:10px;overflow:hidden;font-size:14px}
+.row .fill{position:absolute;inset:0 auto 0 0;background:var(--bar);opacity:.5;transition:width .7s cubic-bezier(.2,.8,.2,1)}
+.row.lead .fill{opacity:.85}
+.row span{position:relative}
+.row .n{white-space:nowrap;font-weight:800;font-variant-numeric:tabular-nums}
+.empty{color:var(--muted);font-size:14px;margin:6px 0}
+.voters{list-style:none;padding:0;margin:6px 0 0;max-height:260px;overflow-y:auto}
+.voters li{padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.voters li small{display:block;color:var(--muted)}
+.voters .you{color:var(--acc);font-weight:600}
+.order{background:var(--beige);color:#2b1a12}
+.order .q{color:#6b5345}
+.qty{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
+.qty label{font-size:14px;margin:0;display:flex;align-items:center;gap:8px}
+.qty input{width:76px;min-height:44px;padding:8px 10px;border-color:#c9b69c;color:#2b1a12}
+pre{white-space:pre-wrap;font:14px/1.55 Lexend,sans-serif;background:#fff8ee;border:2px dashed #c9b69c;border-radius:14px;padding:14px;margin:0;color:#2b1a12}
+.order .btns a,.order .btns button{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+.order .ghost{color:#2b1a12;border-color:#c9b69c}
+.wa{background:#1f8f4e!important}
+footer{text-align:center;color:#e9d6bf;font-size:13px;padding:0 16px 32px}
+@media(prefers-reduced-motion:reduce){.row .fill,.opt{transition:none}}
+</style>
+<style>
+.wrap{max-width:720px;margin:0 auto;padding:20px max(5vw,16px) 56px}
+.wrap .card+.card{margin-top:20px}
+.list{list-style:none;padding:0;margin:10px 0 0}
+.list li{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.list a{color:var(--acc);font-weight:600}
+.host{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.closed{padding:12px 16px;border-radius:12px;background:rgba(216,69,44,.15);font-weight:600;margin:0 0 14px}
+</style>
+<!-- Firebase (SDK oficial do Google) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<!--
+  ===================== CONFIGURAÇÃO (faça uma vez) =====================
+  1. Acesse https://console.firebase.google.com e crie um projeto (gratuito).
+  2. Em "Build > Authentication > Sign-in method", ative "Anônimo".
+  3. Em "Build > Firestore Database", crie o banco (modo produção) e, na aba
+     "Regras", cole as regras abaixo e publique:
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /enquetes/{e} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.dono == request.auth.uid
+        && request.resource.data.titulo is string
+        && request.resource.data.titulo.size() <= 80;
+      allow update: if request.auth != null && resource.data.dono == request.auth.uid
+        && request.resource.data.dono == resource.data.dono;
+      allow delete: if false;
+
+      match /votos/{uid} {
+        allow read: if true;
+        allow create, update: if request.auth != null && request.auth.uid == uid
+          && get(/databases/$(database)/documents/enquetes/$(e)).data.aberta == true
+          && request.resource.data.nome is string
+          && request.resource.data.nome.size() >= 2
+          && request.resource.data.nome.size() <= 40;
+        allow delete: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+  }
+}
+
+  4. Em "Configurações do projeto > Seus apps", adicione um app Web (</>)
+     e copie o objeto firebaseConfig para FIREBASE_CONFIG logo abaixo.
+  5. Em "Authentication > Settings > Domínios autorizados", adicione o
+     domínio onde a página vai ficar (ex.: seuusuario.github.io).
+  6. Publique este arquivo (GitHub Pages, Netlify, etc.) e compartilhe o link.
+  =======================================================================
+-->
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAk9TionHp9BXu8oP5xJNSk3vG0OOfhe-8",
+  authDomain: "enquete-pizzas-funcional-k.firebaseapp.com",
+  projectId: "enquete-pizzas-funcional-k",
+  storageBucket: "enquete-pizzas-funcional-k.firebasestorage.app",
+  messagingSenderId: "560103569671",
+  appId: "1:560103569671:web:09631dc29c64e502c2eda2"
+};
+</script>
+
+<nav class="topbar" id="topbar" hidden aria-label="Navegação">
+  <a class="home" href="?">← Votações</a>
+  <a href="#votar" data-sec="votar">1. Votar</a>
+  <a href="#placar" data-sec="placar">2. Placar</a>
+  <a href="#pedido" data-sec="pedido">3. Resultado</a>
+</nav>
+<header>
+  <h1 id="h1">Confraternização Funcional K</h1>
+  <p id="sub">Marque as pizzas que você prefere, salgadas e doces, escreva seu nome e registre. O placar atualiza na hora para todo mundo.</p>
+  <span class="status" id="status">Conectando…</span><br>
+</header>
+
+<!-- Tela inicial: criar / abrir votação -->
+<div class="wrap" id="home" hidden>
+  <form class="card" id="newForm" novalidate>
+    <h2>Nova votação</h2>
+    <p class="q">Crie uma votação para cada festa ou rodada. Cada uma tem seu próprio link e placar.</p>
+    <label for="titulo">Nome da votação</label>
+    <input id="titulo" maxlength="80" value="Confraternização Funcional K">
+
+    <div class="btns"><button class="send" id="create" type="submit">Criar votação</button></div>
+    <div class="msg" id="homeMsg" role="status"></div>
+  </form>
+  <div class="card">
+    <h2>Suas votações</h2>
+    <p class="q">Votações criadas ou abertas neste aparelho.</p>
+    <ul class="list" id="recent"></ul>
+  </div>
+</div>
+
+<!-- Tela da votação -->
+<main id="poll" hidden>
+  <div class="card ballot" id="votar">
+    <div class="steps"><span><b>1</b> Marque os sabores</span><span><b>2</b> Escreva seu nome</span><span><b>3</b> Toque em Registrar</span></div>
+    <p class="closed" id="closed" hidden>Esta votação foi encerrada pelo anfitrião. Os resultados continuam visíveis.</p>
+    <section>
+      <h2>Salgadas</h2>
+      <p class="q" id="qS">Marque todas as salgadas que você gosta, quantas quiser.</p>
+      <div id="o-salgada"></div>
+    </section>
+    <section>
+      <h2>Doces</h2>
+      <p class="q" id="qD">Marque todas as doces que você gosta, quantas quiser.</p>
+      <div id="o-doce"></div>
+    </section>
+    <form class="finish" id="form" novalidate>
+      <h2 id="f-title">Registre suas preferências</h2>
+      <p class="picks" id="picks"></p>
+      <p class="mine-note" id="mine-note" hidden></p>
+      <label for="nome">Seu nome</label>
+      <input id="nome" maxlength="40" autocomplete="name" placeholder="Ex.: Maria Silva">
+      <div class="btns">
+        <button class="send" id="send" type="submit">Registrar voto</button>
+        <button class="ghost" id="del" type="button" hidden>Excluir meu voto</button>
+      </div>
+      <div class="msg" id="msg" role="status"></div>
+      <div class="btns after" id="after"><a class="ghost" href="#placar" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none;flex:1">Ver placar e resultado ↓</a></div>
+    </form>
+  </div>
+  <div class="side">
+    <aside class="card" id="placar" aria-live="polite">
+      <h2>Placar ao vivo</h2>
+      <p class="q" id="total">Ninguém votou ainda</p>
+      <h3>Salgadas <span id="t-salgada"></span></h3>
+      <div id="r-salgada"></div>
+      <h3>Doces <span id="t-doce"></span></h3>
+      <div id="r-doce"></div>
+      <h3>Quem já votou <span id="t-v"></span></h3>
+      <ul class="voters" id="voters"></ul>
+      <a class="ghost back" href="#votar" style="display:flex;align-items:center;justify-content:center;text-decoration:none">↑ Voltar para a votação</a>
+    </aside>
+    <aside class="card order" id="pedido" aria-live="polite">
+      <h2>Resultado para a pizzaria</h2>
+      <p class="q">As preferências da turma em uma mensagem pronta para mandar à pizzaria pelo WhatsApp.</p>
+      <pre id="orderText"></pre>
+      <div class="btns">
+        <a class="send wa" id="wa" href="https://wa.me/" target="_blank" rel="noopener">Enviar no WhatsApp</a>
+        <button class="ghost" id="copy" type="button">Copiar mensagem</button>
+      </div>
+      <div class="msg" id="copyMsg" role="status"></div>
+      <a class="ghost back" href="#votar" style="display:flex;align-items:center;justify-content:center;text-decoration:none">↑ Voltar para a votação</a>
+      <div id="hostBox" hidden>
+        <h3>Painel do anfitrião</h3>
+        <div class="host">
+          <button class="ghost" id="share" type="button">Copiar link da votação</button>
+          <button class="ghost" id="toggle" type="button">Encerrar votação</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+</main>
+<footer>Cada pessoa tem um voto por votação, e só quem votou pode alterá-lo.</footer>
+
+<script>
+{
+const POLLS={
+  salgada:[
+    {g:"Tradicionais",p:"P R$ 42 · G R$ 70",i:[
+      ["Calabresa","Muçarela, rodelas de calabresa, cebola roxa e orégano"],
+      ["Sertaneja","Muçarela, carne de sol desfiada, requeijão cremoso, cebola roxa e orégano"],
+      ["Marguerita","Muçarela, tomates selecionados, manjericão e orégano"],
+      ["Muçarela","Muçarela e orégano"],
+      ["Maria Bonita","Muçarela, bacon fatiado, queijo coalho em cubos, cebola roxa e orégano"],
+      ["Caipira","Muçarela, frango assado desfiado e orégano"],
+      ["Frango com Requeijão","Muçarela, frango assado desfiado, requeijão cremoso e orégano"],
+      ["Frango com Creme de Alho","Muçarela, frango assado desfiado, palmito, creme de alho e orégano"],
+      ["Portuguesa","Muçarela, presunto, ovos fatiados, pimentões vermelhos e amarelos, cebola roxa e orégano"],
+      ["Pepperoni","Muçarela, finas fatias de pepperoni e orégano"],
+      ["Quatro Queijos","Muçarela, gorgonzola, provolone, requeijão cremoso e orégano"],
+      ["Lombinho com Abacaxi","Muçarela, lombo canadense, abacaxi em cubos e orégano"],
+      ["Lombinho com Requeijão","Muçarela, lombo canadense, requeijão cremoso e orégano"]]},
+    {g:"De Mestre",p:"P R$ 45 · G R$ 75",i:[
+      ["Atum","Muçarela, atum, cream cheese, cebola roxa e orégano"],
+      ["Peito de Peru com Cream Cheese","Muçarela, peito de peru selecionado, cream cheese e orégano"],
+      ["Da Casa","Muçarela, parmesão, calabresa salteada, manjericão e orégano"],
+      ["Medway","Muçarela, calabresa salteada, bacon em cubos, cream cheese e orégano"],
+      ["Bacon aos Quatro Queijos","Muçarela, bacon fatiado, gorgonzola, provolone, requeijão cremoso e orégano"],
+      ["Borborema","Muçarela, carne de sol defumada, queijo coalho, nata com coentro e orégano"],
+      ["Lampião","Muçarela, charque desfiada e dessalgada, requeijão cremoso e orégano"],
+      ["Frango com Bacon","Muçarela, frango assado desfiado, requeijão cremoso, bacon em cubos e orégano"],
+      ["Palmito","Muçarela, palmito, rúcula, parmesão, tomate e orégano"],
+      ["Tomate Seco com Rúcula","Muçarela, tomate seco, rúcula e orégano"],
+      ["Abacaxi com Gorgonzola","Muçarela, abacaxi fatiado, gorgonzola e orégano"]]},
+    {g:"Gourmet",p:"P R$ 50 · G R$ 80",i:[
+      ["Parma","Muçarela, presunto parma, gorgonzola, rúcula, fio de azeite e orégano"],
+      ["Filé Mignon com Bacon","Muçarela, filé mignon, bacon em cubos, cebola roxa e orégano"],
+      ["Camarão aos Quatro Queijos","Muçarela, camarão, gorgonzola, provolone, requeijão cremoso e orégano"]]}
+  ],
+  doce:[
+    {g:"Doces",p:"P R$ 45 · G R$ 70",i:[
+      ["Dois Amores","Chocolate ao leite e chocolate branco gratinados"],
+      ["Delícia de Doce de Leite","Doce de leite em pasta e paçoca"],
+      ["Romeu e Julieta","Doce de goiaba e cream cheese"],
+      ["Banana Mestre","Muçarela, rodelas de banana, chocolate branco e doce de leite"],
+      ["Cartola","Muçarela, rodelas de banana, açúcar e canela"],
+      ["Cookie","Chocolate branco gratinado e biscoito Negresco"],
+      ["Sonho de Valsa","Chocolate ao leite gratinado e bombons Sonho de Valsa"],
+      ["Chocolate ao Leite","Chocolate ao leite gratinado"],
+      ["Chocolate Branco","Chocolate branco gratinado"]]}
+  ]
+};
+const CAT={};for(const k in POLLS)for(const g of POLLS[k])for(const [n] of g.i)CAT[k+"|"+n]=g;
+const valid=(k,n)=>typeof n==="string"&&!!CAT[k+"|"+n];
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const $=id=>document.getElementById(id);
+const hora=t=>{try{return new Date(t).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}catch(_){return""}};
+const statusEl=$("status"),msg=$("msg"),nome=$("nome"),send=$("send"),del=$("del");
+const RECENT="pizza-poll-recentes";
+const pollId=(new URLSearchParams(location.search).get("v")||"").replace(/[^A-Za-z0-9_-]/g,"");
+let fs=null,uid=null,poll=null,votes=[],myVote=null,busy=false,ready=false,pick={salgada:[],doce:[]},firstSnap=true;
+const arr=(k,x)=>(Array.isArray(x)?x:(x?[x]:[])).filter((n,i,a)=>valid(k,n)&&a.indexOf(n)===i);
+const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+
+/* ---------- utilidades ---------- */
+function recent(){try{const a=JSON.parse(localStorage.getItem(RECENT)||"[]");return Array.isArray(a)?a:[]}catch(_){return[]}}
+function remember(id,titulo){try{const a=recent().filter(x=>x.id!==id);a.unshift({id,titulo,t:Date.now()});localStorage.setItem(RECENT,JSON.stringify(a.slice(0,20)))}catch(_){}}
+function say(el,cls,text){el.className="msg "+cls;el.textContent=text}
+function linkFor(id){return location.origin+location.pathname+"?v="+id}
+
+/* ---------- tela inicial ---------- */
+function renderHome(){
+  $("home").hidden=false;$("h1").textContent="Votação de pizzas";
+  $("sub").textContent="Crie uma votação e mande o link para os convidados. Todos votam do próprio celular e o placar aparece ao vivo.";
+  const ul=$("recent");ul.textContent="";const a=recent();
+  if(!a.length){const li=document.createElement("li");li.className="empty";li.textContent="Nenhuma votação ainda.";ul.append(li);return}
+  for(const x of a){
+    const li=document.createElement("li");
+    const l=document.createElement("a");l.href="?v="+encodeURIComponent(x.id);l.textContent=x.titulo||"Votação";
+    const s=document.createElement("small");s.className="hint";s.textContent=new Date(x.t).toLocaleDateString("pt-BR");
+    li.append(l,s);ul.append(li);
+  }
+}
+$("newForm").addEventListener("submit",async e=>{
+  e.preventDefault();const m=$("homeMsg");
+  const t=$("titulo").value.trim().replace(/\s+/g," ");
+  if(t.length<3)return say(m,"err","Dê um nome à votação.");
+  if(!ready)return say(m,"err","Ainda conectando. Tente em alguns segundos.");
+  $("create").disabled=true;say(m,"","Criando…");
+  try{
+    const ref=await fs.collection("enquetes").add({titulo:t,dono:uid,aberta:true,criada:Date.now()});
+    remember(ref.id,t);location.href="?v="+ref.id;
+  }catch(err){say(m,"err","Não foi possível criar a votação. Confira a configuração do Firebase.");$("create").disabled=false}
+});
+
+/* ---------- cédula ---------- */
+for(const k in POLLS){
+  $("o-"+k).innerHTML=POLLS[k].map(gr=>`<div class="grp"><span>${esc(gr.g)}</span><span>${esc(gr.p)}</span></div><div class="opts">`+
+    gr.i.map(([n,d])=>`<button type="button" class="opt" data-poll="${k}" data-name="${esc(n)}" aria-pressed="false"><b>${esc(n)}</b><small>${esc(d)}</small></button>`).join("")+`</div>`).join("");
+}
+
+function renderForm(){
+  document.querySelectorAll(".opt").forEach(b=>{b.setAttribute("aria-pressed",pick[b.dataset.poll].includes(b.dataset.name)?"true":"false");b.disabled=!!(poll&&!poll.aberta)});
+  const p=$("picks");p.textContent="";
+  const add=(l,k)=>{p.append(l+` (${pick[k].length}): `);const b=document.createElement("b");b.textContent=pick[k].join(", ")||"nenhuma";p.append(b)};
+  add("Salgadas","salgada");p.append(document.createElement("br"));add("Doces","doce");
+  const open=!!(poll&&poll.aberta);
+  $("closed").hidden=!poll||open;
+  const note=$("mine-note");
+  if(myVote){
+    note.hidden=false;
+    note.textContent=`Você já votou às ${hora(myVote.t)}. Mude as escolhas e toque em "Alterar meu voto" para trocar.`;
+    $("f-title").textContent="Alterar seu voto";send.textContent="Alterar meu voto";del.hidden=false;
+  }else{note.hidden=true;$("f-title").textContent="Registre suas preferências";send.textContent="Registrar voto";del.hidden=true}
+  send.disabled=del.disabled=busy||!ready||!open;nome.disabled=!open;
+}
+
+function tally(k){
+  const c={};let t=0;
+  for(const v of votes){const a=arr(k,v[k]);if(a.length)t++;for(const n of a)c[n]=(c[n]||0)+1}
+  return {c,t,ranked:Object.keys(c).sort((a,b)=>c[b]-c[a]||a.localeCompare(b))};
+}
+
+function renderLive(){
+  $("total").textContent=votes.length===1?"1 pessoa já votou":votes.length+" pessoas já votaram";
+  const T={};
+  for(const k in POLLS){
+    const {c,t,ranked}=T[k]=tally(k);
+    $("t-"+k).textContent=t===1?"1 pessoa":t+" pessoas";
+    const box=$("r-"+k);box.textContent="";
+    if(!ranked.length){const e=document.createElement("p");e.className="empty";e.textContent="Ainda sem votos.";box.append(e);continue}
+    const max=c[ranked[0]];
+    for(const n of ranked){
+      const pct=Math.round(c[n]*100/t);
+      const r=document.createElement("div");r.className="row"+(c[n]===max?" lead":"");
+      const f=document.createElement("span");f.className="fill";f.style.width=pct+"%";
+      const a=document.createElement("span");a.textContent=n;
+      const b=document.createElement("span");b.className="n";b.textContent=pct+"% · "+c[n];
+      r.append(f,a,b);box.append(r);
+    }
+  }
+  const list=$("voters");list.textContent="";
+  const sorted=votes.slice().sort((a,b)=>(+b.t||0)-(+a.t||0));
+  $("t-v").textContent=sorted.length?String(sorted.length):"";
+  if(!sorted.length){const li=document.createElement("li");li.className="empty";li.textContent="Seja o primeiro a votar!";list.append(li)}
+  for(const v of sorted){
+    const li=document.createElement("li");
+    const b=document.createElement("b");b.textContent=String(v.nome||"Anônimo").slice(0,40);li.append(b);
+    if(v._id===uid){const y=document.createElement("span");y.className="you";y.textContent=" (você)";li.append(y)}
+    const s=document.createElement("small");
+    const aS=arr("salgada",v.salgada),aD=arr("doce",v.doce);
+    s.textContent=[aS.length&&"🍕 "+aS.join(", "),aD.length&&"🍫 "+aD.join(", "),v.t&&"às "+hora(v.t)].filter(Boolean).join(" · ");
+    li.append(s);list.append(li);
+  }
+  renderOrder(T);
+}
+
+/* ---------- exportar preferências ---------- */
+function loadOrder(){}
+function renderOrder(T){
+  const L=[`🍕 *Preferências de pizza${poll&&poll.titulo?" – "+poll.titulo:""}*`,`${votes.length} ${votes.length===1?"pessoa votou":"pessoas votaram"}`,""];
+  for(const [k,lab] of [["salgada","*Salgadas*"],["doce","*Doces*"]]){
+    L.push(lab);const r=T[k].ranked;
+    if(!r.length)L.push("— sem votos");
+    r.forEach((nm,i)=>L.push(`${i+1}. ${nm} – ${T[k].c[nm]} ${T[k].c[nm]===1?"voto":"votos"}`));
+    L.push("");
+  }
+  const txt=L.join("\n").trim();
+  $("orderText").textContent=txt;
+  $("wa").href="https://wa.me/?text="+encodeURIComponent(txt);
+}
+
+async function copyText(text,el,okMsg){
+  try{await navigator.clipboard.writeText(text);say(el,"ok",okMsg)}
+  catch(_){say(el,"","Não foi possível copiar automaticamente: "+text)}
+}
+$("copy").addEventListener("click",()=>copyText($("orderText").textContent,$("copyMsg"),"Mensagem copiada! Agora é só colar na conversa com a pizzaria."));
+$("share").addEventListener("click",()=>copyText(linkFor(pollId),$("copyMsg"),"Link copiado! Mande para os convidados."));
+$("toggle").addEventListener("click",async()=>{
+  if(!poll)return;
+  try{await fs.doc("enquetes/"+pollId).update({aberta:!poll.aberta})}
+  catch(_){say($("copyMsg"),"err","Não foi possível mudar o status da votação.")}
+});
+
+document.addEventListener("click",e=>{
+  const b=e.target.closest(".opt");if(!b||b.disabled)return;
+  const k=b.dataset.poll,n=b.dataset.name;
+  msg.textContent="";msg.className="msg";
+  if(pick[k].includes(n))pick[k]=pick[k].filter(x=>x!==n);
+  else pick[k]=[...pick[k],n];
+  renderForm();
+});
+
+$("form").addEventListener("submit",async e=>{
+  e.preventDefault();if(busy||!ready)return;
+  const n=nome.value.trim().replace(/\s+/g," ");
+  if(!pick.salgada.length&&!pick.doce.length)return say(msg,"err","Marque pelo menos uma pizza.");
+  if(n.length<2){nome.focus();return say(msg,"err","Escreva seu nome para registrar o voto.")}
+  const rec={nome:n,salgada:pick.salgada.slice(),doce:pick.doce.slice(),t:Date.now()};
+  const ref=fs.doc(`enquetes/${pollId}/votos/${uid}`),had=!!myVote;
+  busy=true;renderForm();say(msg,"","Gravando…");
+  try{
+    await ref.set(rec);
+    const s=await ref.get({source:"server"});
+    const back=s.exists?s.data():null;
+    if(back&&back.t===rec.t&&back.nome===rec.nome&&same(back.salgada,rec.salgada)&&same(back.doce,rec.doce)){
+      $("after").classList.add("on");say(msg,"ok",`✅ Voto ${had?"alterado":"gravado"} e confirmado no servidor às ${hora(rec.t)}. Obrigado, ${n}!`);
+      try{localStorage.setItem("pizza-poll-nome",n)}catch(_){}
+    }else say(msg,"err","O voto foi enviado, mas a confirmação do servidor não bateu. Tente de novo.");
+  }catch(err){say(msg,"err",poll&&!poll.aberta?"A votação foi encerrada.":"Não foi possível gravar o voto. Verifique sua conexão e tente de novo.")}
+  busy=false;renderForm();
+});
+
+del.addEventListener("click",async()=>{
+  if(busy||!myVote)return;busy=true;renderForm();
+  try{
+    const ref=fs.doc(`enquetes/${pollId}/votos/${uid}`);
+    await ref.delete();const s=await ref.get({source:"server"});
+    if(s.exists)throw 0;
+    pick={salgada:[],doce:[]};say(msg,"ok","Seu voto foi excluído.");
+  }catch(_){say(msg,"err","Não foi possível excluir o voto.")}
+  busy=false;renderForm();
+});
+
+/* ---------- conexão ---------- */
+function startPoll(){
+  $("poll").hidden=false;$("topbar").hidden=false;
+  try{nome.value=localStorage.getItem("pizza-poll-nome")||""}catch(_){}
+  fs.doc("enquetes/"+pollId).onSnapshot(d=>{
+    if(!d.exists){statusEl.textContent="Votação não encontrada. Confira o link.";poll=null;renderForm();return}
+    poll=d.data();
+    $("h1").textContent=poll.titulo||"Votação de pizzas";document.title=(poll.titulo||"Enquete")+" – Pizzas";
+    remember(pollId,poll.titulo);
+    $("hostBox").hidden=poll.dono!==uid;
+    $("toggle").textContent=poll.aberta?"Encerrar votação":"Reabrir votação";
+    statusEl.textContent=poll.aberta?"Votação ao vivo · todos veem o mesmo placar":"Votação encerrada";
+    renderForm();renderLive();
+  },()=>{statusEl.textContent="Não foi possível carregar a votação."});
+  fs.collection(`enquetes/${pollId}/votos`).onSnapshot(snap=>{
+    votes=snap.docs.map(d=>({...d.data(),_id:d.id}));
+    myVote=votes.find(v=>v._id===uid)||null;
+    if(firstSnap&&myVote){pick={salgada:arr("salgada",myVote.salgada),doce:arr("doce",myVote.doce)};nome.value=myVote.nome||nome.value}
+    if(!myVote&&!firstSnap&&!busy){/* voto excluído */}
+    firstSnap=false;renderForm();renderLive();
+  },()=>{statusEl.textContent="Não foi possível carregar os votos."});
+}
+
+if(pollId)loadOrder();
+try{const secs=["votar","placar","pedido"].map(id=>$(id));const io=new IntersectionObserver(es=>{for(const e of es)if(e.isIntersecting)document.querySelectorAll(".topbar a[data-sec]").forEach(a=>a.classList.toggle("cur",a.dataset.sec===e.target.id))},{rootMargin:"-40% 0px -55% 0px"});secs.forEach(s=>s&&io.observe(s))}catch(_){}
+renderForm();renderLive();
+if(!FIREBASE_CONFIG.apiKey||!FIREBASE_CONFIG.projectId||typeof firebase==="undefined"){
+  statusEl.textContent=typeof firebase==="undefined"?"Sem conexão com o Firebase. Verifique a internet.":"Configuração pendente: preencha FIREBASE_CONFIG no arquivo.";
+  if(pollId){$("poll").hidden=false}else renderHome();
+}else{
+  firebase.initializeApp(FIREBASE_CONFIG);
+  fs=firebase.firestore();
+  firebase.auth().onAuthStateChanged(u=>{
+    if(!u)return;
+    uid=u.uid;ready=true;statusEl.textContent="Conectado";
+    if(pollId)startPoll();else renderHome();
+  });
+  firebase.auth().signInAnonymously().catch(()=>{statusEl.textContent="Falha ao conectar. Ative o login Anônimo no Firebase."});
+}
+}
+</script>
+</body>
+</html>
