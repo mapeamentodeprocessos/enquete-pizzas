@@ -204,14 +204,13 @@ const FIREBASE_CONFIG = {
 </script>
 
 <nav class="topbar" id="topbar" hidden aria-label="Navegação">
-  <a class="home" href="?" aria-label="Voltar para as votações">←<span class="lg"> Votações</span></a>
   <a href="#votar" data-sec="votar">Votar</a>
   <a href="#placar" data-sec="placar">Placar</a>
   <a href="#pedido" data-sec="pedido">Resultado</a>
 </nav>
 <header>
   <h1 id="h1">Confraternização Funcional K</h1>
-  <p id="sub">Marque as pizzas que você prefere, salgadas e doces, escreva seu nome e registre. O placar atualiza na hora para todo mundo.</p>
+  <p id="sub">Marque as pizzas que você prefere, salgadas e doces, escreva seu nome e registre seu voto. O placar atualiza na hora para todo mundo.</p>
   <span class="status" id="status">Conectando…</span><br>
 </header>
 
@@ -354,7 +353,9 @@ const $=id=>document.getElementById(id);
 const hora=t=>{try{return new Date(t).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}catch(_){return""}};
 const statusEl=$("status"),msg=$("msg"),nome=$("nome"),send=$("send"),del=$("del");
 const RECENT="pizza-poll-recentes";
-const pollId=(new URLSearchParams(location.search).get("v")||"").replace(/[^A-Za-z0-9_-]/g,"");
+/* votação única e oficial: Confraternização Funcional K */
+try{if(location.search)history.replaceState(null,"",location.pathname+location.hash)}catch(_){}
+const pollId="oBP2971UUcabmzj2Ap7G";
 let fs=null,uid=null,poll=null,votes=[],myVote=null,busy=false,ready=false,pick={salgada:[],doce:[]},firstSnap=true;
 const arr=(k,x)=>(Array.isArray(x)?x:(x?[x]:[])).filter((n,i,a)=>valid(k,n)&&a.indexOf(n)===i);
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
@@ -363,7 +364,7 @@ const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 function recent(){try{const a=JSON.parse(localStorage.getItem(RECENT)||"[]");return Array.isArray(a)?a:[]}catch(_){return[]}}
 function remember(id,titulo){try{const a=recent().filter(x=>x.id!==id);a.unshift({id,titulo,t:Date.now()});localStorage.setItem(RECENT,JSON.stringify(a.slice(0,20)))}catch(_){}}
 function say(el,cls,text){el.className="msg "+cls;el.textContent=text}
-function linkFor(id){return location.origin+location.pathname+"?v="+id}
+function linkFor(){return location.origin+location.pathname}
 
 /* ---------- tela inicial ---------- */
 let homeLive=false;const homePolls={},homeCounts={},homeSubs={};
@@ -570,14 +571,14 @@ try{const secs=["votar","placar","pedido"].map(id=>$(id));const io=new Intersect
 renderForm();renderLive();
 if(!FIREBASE_CONFIG.apiKey||!FIREBASE_CONFIG.projectId||typeof firebase==="undefined"){
   statusEl.textContent=typeof firebase==="undefined"?"Sem conexão com o Firebase. Verifique a internet.":"Configuração pendente: preencha FIREBASE_CONFIG no arquivo.";
-  if(pollId){$("poll").hidden=false}else renderHome();
+  $("poll").hidden=false;
 }else{
   firebase.initializeApp(FIREBASE_CONFIG);
   fs=firebase.firestore();
   firebase.auth().onAuthStateChanged(u=>{
     if(!u)return;
     uid=u.uid;ready=true;statusEl.hidden=true;
-    if(pollId)startPoll();else renderHome();
+    startPoll();
   });
   firebase.auth().signInAnonymously().catch(()=>{statusEl.textContent="Falha ao conectar. Ative o login Anônimo no Firebase."});
 }
