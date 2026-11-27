@@ -85,6 +85,14 @@ h3 span{color:var(--muted);font-weight:400;white-space:nowrap}
 .voters li{padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
 .voters li small{display:block;color:var(--muted)}
 .voters .you{color:var(--acc);font-weight:600}
+.top12{margin:14px 0 4px;padding:14px;border-radius:16px;background:rgba(216,69,44,.08);border:2px solid rgba(216,69,44,.25)}
+.top12 h3{margin-top:0}
+.top12 ol{margin:0;padding:0;list-style:none;counter-reset:t}
+.top12 li{counter-increment:t;display:flex;gap:8px;align-items:baseline;padding:5px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.top12 li::before{content:counter(t)"º";min-width:28px;font-weight:800;color:var(--acc)}
+.top12 li span{flex:1}
+.top12 li small{color:var(--muted);white-space:nowrap}
+.top12 li.tie small{color:var(--acc);font-weight:600}
 .order{background:var(--beige);color:#2b1a12}
 .order .q{color:#6b5345}
 .qty{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
@@ -265,6 +273,12 @@ const FIREBASE_CONFIG = {
     <aside class="card" id="placar" aria-live="polite">
       <h2>Placar ao vivo</h2>
       <p class="q" id="total">Ninguém votou ainda</p>
+      <div class="top12">
+        <h3>Os 12 sabores escolhidos <span id="t-top"></span></h3>
+        <p class="hint" style="margin:0 0 6px">Os 12 mais votados, somando salgadas e doces. Atualiza a cada voto.</p>
+        <ol id="top12"></ol>
+        <p class="hint" id="tieNote" hidden></p>
+      </div>
       <h3>Salgadas <span id="t-salgada"></span></h3>
       <div id="r-salgada"></div>
       <h3>Doces <span id="t-doce"></span></h3>
@@ -477,7 +491,34 @@ function renderLive(){
 
 /* ---------- exportar preferências ---------- */
 function loadOrder(){}
+const TOPN=12;
+function top12(T){
+  const all=[];
+  for(const k of ["salgada","doce"])for(const n of T[k].ranked)all.push({k,n,v:T[k].c[n]});
+  all.sort((a,b)=>b.v-a.v||a.n.localeCompare(b.n,"pt-BR"));
+  const top=all.slice(0,TOPN);
+  const cut=top.length===TOPN?top[TOPN-1].v:0;
+  const tied=cut?all.slice(TOPN).filter(x=>x.v===cut):[];
+  return {top,tied,cut};
+}
 function renderOrder(T){
+  const {top,tied,cut}=top12(T);
+  /* quadro dos 12 no placar */
+  const ol=$("top12");ol.textContent="";
+  $("t-top").textContent=`${top.length}/${TOPN}`;
+  if(!top.length){const li=document.createElement("li");li.className="empty";li.textContent="Aparecem aqui conforme a turma vota.";ol.append(li)}
+  for(const x of top){
+    const li=document.createElement("li");if(tied.length&&x.v===cut)li.className="tie";
+    const a=document.createElement("span");a.textContent=`${x.n} (${x.k==="salgada"?"salgada":"doce"})`;
+    const b=document.createElement("small");b.textContent=`${x.v} ${x.v===1?"voto":"votos"}`;
+    li.append(a,b);ol.append(li);
+  }
+  const tn=$("tieNote");
+  if(tied.length){tn.hidden=false;tn.textContent=`Empate na 12ª vaga: ${tied.map(x=>x.n).join(", ")} também ${tied.length===1?"tem":"têm"} ${cut} ${cut===1?"voto":"votos"}. Os destacados podem ser trocados por ${tied.length===1?"ele":"eles"}.`}
+  else if(top.length&&top.length<TOPN){tn.hidden=false;tn.textContent=`Até agora ${top.length} ${top.length===1?"sabor recebeu":"sabores receberam"} votos. Faltam ${TOPN-top.length} para completar os 12.`}
+  else tn.hidden=true;
+
+  /* mensagem para o WhatsApp */
   const L=[`🍕 *Preferências de pizza${poll&&poll.titulo?" – "+poll.titulo:""}*`,`${votes.length} ${votes.length===1?"pessoa votou":"pessoas votaram"}`,""];
   for(const [k,lab] of [["salgada","*Salgadas*"],["doce","*Doces*"]]){
     L.push(lab);const r=T[k].ranked;
@@ -485,6 +526,11 @@ function renderOrder(T){
     r.forEach((nm,i)=>L.push(`${i+1}. ${nm} – ${T[k].c[nm]} ${T[k].c[nm]===1?"voto":"votos"}`));
     L.push("");
   }
+  L.push("━━━━━━━━━━━━━━",`🏆 *OS ${TOPN} SABORES MAIS VOTADOS*`,`_Atualizado em ${new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}_`);
+  if(!top.length)L.push("— ainda sem votos");
+  top.forEach((x,i)=>L.push(`${i+1}. ${x.n} (${x.k==="salgada"?"salgada":"doce"}) – ${x.v} ${x.v===1?"voto":"votos"}`));
+  if(tied.length)L.push("",`⚠️ Empate na 12ª vaga com ${cut} ${cut===1?"voto":"votos"}: ${tied.map(x=>x.n).join(", ")}.`);
+  else if(top.length&&top.length<TOPN)L.push("",`(${top.length} de ${TOPN} sabores definidos até agora)`);
   const txt=L.join("\n").trim();
   $("orderText").textContent=txt;
   $("wa").href="https://wa.me/?text="+encodeURIComponent(txt);
