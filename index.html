@@ -227,8 +227,8 @@ const FIREBASE_CONFIG = {
     <div class="msg" id="homeMsg" role="status"></div>
   </form>
   <div class="card">
-    <h2>Suas votações</h2>
-    <p class="q">Votações criadas ou abertas neste aparelho.</p>
+    <h2>Votações registradas</h2>
+    <p class="q">Votações que já têm votos registrados no sistema.</p>
     <ul class="list" id="recent"></ul>
   </div>
 </div>
@@ -369,14 +369,28 @@ function linkFor(id){return location.origin+location.pathname+"?v="+id}
 function renderHome(){
   $("home").hidden=false;$("h1").textContent="Votação de pizzas";
   $("sub").textContent="Crie uma votação e mande o link para os convidados. Todos votam do próprio celular e o placar aparece ao vivo.";
-  const ul=$("recent");ul.textContent="";const a=recent();
-  if(!a.length){const li=document.createElement("li");li.className="empty";li.textContent="Nenhuma votação ainda.";ul.append(li);return}
-  for(const x of a){
-    const li=document.createElement("li");
-    const l=document.createElement("a");l.href="?v="+encodeURIComponent(x.id);l.textContent=x.titulo||"Votação";
-    const s=document.createElement("small");s.className="hint";s.textContent=new Date(x.t).toLocaleDateString("pt-BR");
-    li.append(l,s);ul.append(li);
-  }
+  const ul=$("recent");ul.textContent="";
+  const info=txt=>{ul.textContent="";const li=document.createElement("li");li.className="empty";li.textContent=txt;ul.append(li)};
+  if(!fs){info("Carregando…");return}
+  info("Carregando…");
+  /* lista direto do banco: só votações que existem e têm ao menos 1 voto */
+  fs.collection("enquetes").get().then(async snap=>{
+    const rows=[];
+    await Promise.all(snap.docs.map(async d=>{
+      const x=d.data()||{};
+      try{const v=await fs.collection(`enquetes/${d.id}/votos`).get();if(v.size>0)rows.push({id:d.id,titulo:x.titulo,criada:+x.criada||0,aberta:x.aberta,n:v.size})}catch(_){}
+    }));
+    rows.sort((a,b)=>b.criada-a.criada);
+    if(!rows.length){info("Nenhuma votação com votos ainda.");return}
+    ul.textContent="";
+    for(const x of rows){
+      const li=document.createElement("li");
+      const l=document.createElement("a");l.href="?v="+encodeURIComponent(x.id);l.textContent=String(x.titulo||"Votação").slice(0,80);
+      const s=document.createElement("small");s.className="hint";
+      s.textContent=`${x.n} ${x.n===1?"voto":"votos"} · ${x.aberta?"aberta":"encerrada"}`+(x.criada?" · "+new Date(x.criada).toLocaleDateString("pt-BR"):"");
+      li.append(l,s);ul.append(li);
+    }
+  }).catch(()=>info("Não foi possível carregar as votações."));
 }
 $("newForm").addEventListener("submit",async e=>{
   e.preventDefault();const m=$("homeMsg");
