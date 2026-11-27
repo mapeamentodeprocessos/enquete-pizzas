@@ -228,7 +228,7 @@ const FIREBASE_CONFIG = {
   </form>
   <div class="card">
     <h2>Suas votações</h2>
-    <p class="q">Votações criadas ou abertas neste aparelho.</p>
+    <p class="q">Votações que você criou neste aparelho. Só aparecem para quem criou.</p>
     <ul class="list" id="recent"></ul>
   </div>
 </div>
@@ -257,6 +257,7 @@ const FIREBASE_CONFIG = {
       <div class="btns">
         <button class="send" id="send" type="submit">Registrar voto</button>
         <button class="ghost" id="del" type="button" hidden>Excluir meu voto</button>
+        <button class="ghost" id="other" type="button" hidden>Votar como outra pessoa neste aparelho</button>
       </div>
       <div class="msg" id="msg" role="status"></div>
       <div class="btns after" id="after"><a class="ghost" href="#placar" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none;flex:1">Ver placar e resultado ↓</a></div>
@@ -298,7 +299,6 @@ const FIREBASE_CONFIG = {
   <span id="mcount">Nenhum sabor marcado</span>
   <a href="#form" class="mgo" id="mgo">Registrar ↓</a>
 </div>
-<footer>Cada pessoa tem um voto por votação, e só quem votou pode alterá-lo.</footer>
 
 <script>
 {
@@ -354,7 +354,12 @@ const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"
 const $=id=>document.getElementById(id);
 const hora=t=>{try{return new Date(t).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}catch(_){return""}};
 const statusEl=$("status"),msg=$("msg"),nome=$("nome"),send=$("send"),del=$("del");
-const RECENT="pizza-poll-recentes";
+const RECENT="pizza-host-votacoes",HOSTKEY="pizza-host";
+/* limpa dados antigos que versões anteriores guardavam no aparelho */
+try{["pizza-poll-nome","pizza-poll-recentes","pizza-poll-local","pizza-poll-local-v2","pizza-poll-local-v3"].forEach(k=>localStorage.removeItem(k));
+  Object.keys(localStorage).filter(k=>/^pizza-(pedido|rodizio)-/.test(k)).forEach(k=>localStorage.removeItem(k))}catch(_){}
+const isHostDevice=()=>{try{return localStorage.getItem(HOSTKEY)==="1"}catch(_){return false}};
+function setStatus(txt){statusEl.textContent=txt||"";statusEl.hidden=!txt}
 const pollId=(new URLSearchParams(location.search).get("v")||"").replace(/[^A-Za-z0-9_-]/g,"");
 let fs=null,uid=null,poll=null,votes=[],myVote=null,busy=false,ready=false,pick={salgada:[],doce:[]},firstSnap=true;
 const arr=(k,x)=>(Array.isArray(x)?x:(x?[x]:[])).filter((n,i,a)=>valid(k,n)&&a.indexOf(n)===i);
@@ -362,7 +367,7 @@ const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 
 /* ---------- utilidades ---------- */
 function recent(){try{const a=JSON.parse(localStorage.getItem(RECENT)||"[]");return Array.isArray(a)?a:[]}catch(_){return[]}}
-function remember(id,titulo){try{const a=recent().filter(x=>x.id!==id);a.unshift({id,titulo,t:Date.now()});localStorage.setItem(RECENT,JSON.stringify(a.slice(0,20)))}catch(_){}}
+function remember(id,titulo){if(!poll||poll.dono!==uid)return;try{const a=recent().filter(x=>x.id!==id);a.unshift({id,titulo,t:Date.now()});localStorage.setItem(RECENT,JSON.stringify(a.slice(0,20)))}catch(_){}}
 function say(el,cls,text){el.className="msg "+cls;el.textContent=text}
 function linkFor(id){return location.origin+location.pathname+"?v="+id}
 
@@ -386,8 +391,11 @@ $("newForm").addEventListener("submit",async e=>{
   if(!ready)return say(m,"err","Ainda conectando. Tente em alguns segundos.");
   $("create").disabled=true;say(m,"","Criando…");
   try{
+    try{await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL)}catch(_){}
     const ref=await fs.collection("enquetes").add({titulo:t,dono:uid,aberta:true,criada:Date.now()});
-    remember(ref.id,t);location.href="?v="+ref.id;
+    try{localStorage.setItem(HOSTKEY,"1")}catch(_){}
+    try{const a=recent().filter(x=>x.id!==ref.id);a.unshift({id:ref.id,titulo:t,t:Date.now()});localStorage.setItem(RECENT,JSON.stringify(a.slice(0,20)))}catch(_){}
+    location.href="?v="+ref.id;
   }catch(err){say(m,"err","Não foi possível criar a votação. Confira a configuração do Firebase.");$("create").disabled=false}
 });
 
@@ -412,8 +420,8 @@ function renderForm(){
   if(myVote){
     note.hidden=false;
     note.textContent=`Você já votou às ${hora(myVote.t)}. Mude as escolhas e toque em "Alterar meu voto" para trocar.`;
-    $("f-title").textContent="Alterar seu voto";send.textContent="Alterar meu voto";del.hidden=false;
-  }else{note.hidden=true;$("f-title").textContent="Registre suas preferências";send.textContent="Registrar voto";del.hidden=true}
+    $("f-title").textContent="Alterar seu voto";send.textContent="Alterar meu voto";del.hidden=false;$("other").hidden=!open||poll.dono===uid;
+  }else{note.hidden=true;$("f-title").textContent="Registre suas preferências";send.textContent="Registrar voto";del.hidden=true;$("other").hidden=true}
   send.disabled=del.disabled=busy||!ready||!open;nome.disabled=!open;
 }
 
@@ -507,7 +515,6 @@ $("form").addEventListener("submit",async e=>{
     const back=s.exists?s.data():null;
     if(back&&back.t===rec.t&&back.nome===rec.nome&&same(back.salgada,rec.salgada)&&same(back.doce,rec.doce)){
       $("after").classList.add("on");say(msg,"ok",`✅ Voto ${had?"alterado":"gravado"} e confirmado no servidor às ${hora(rec.t)}. Obrigado, ${n}!`);
-      try{localStorage.setItem("pizza-poll-nome",n)}catch(_){}
     }else say(msg,"err","O voto foi enviado, mas a confirmação do servidor não bateu. Tente de novo.");
   }catch(err){say(msg,"err",poll&&!poll.aberta?"A votação foi encerrada.":"Não foi possível gravar o voto. Verifique sua conexão e tente de novo.")}
   busy=false;renderForm();
@@ -524,27 +531,34 @@ del.addEventListener("click",async()=>{
   busy=false;renderForm();
 });
 
+$("other").addEventListener("click",async()=>{
+  /* encerra a identidade atual neste aparelho; o voto já registrado continua valendo */
+  try{await firebase.auth().signOut()}catch(_){}
+  try{sessionStorage.clear()}catch(_){}
+  location.reload();
+});
+
 /* ---------- conexão ---------- */
 function startPoll(){
   $("poll").hidden=false;$("topbar").hidden=false;
-  try{nome.value=localStorage.getItem("pizza-poll-nome")||""}catch(_){}
+  nome.value="";
   fs.doc("enquetes/"+pollId).onSnapshot(d=>{
-    if(!d.exists){statusEl.textContent="Votação não encontrada. Confira o link.";poll=null;renderForm();return}
+    if(!d.exists){setStatus("Votação não encontrada. Confira o link.");poll=null;renderForm();return}
     poll=d.data();
     $("h1").textContent=poll.titulo||"Votação de pizzas";document.title=(poll.titulo||"Enquete")+" – Pizzas";
     remember(pollId,poll.titulo);
     $("hostBox").hidden=poll.dono!==uid;
     $("toggle").textContent=poll.aberta?"Encerrar votação":"Reabrir votação";
-    statusEl.textContent=poll.aberta?"Votação ao vivo · todos veem o mesmo placar":"Votação encerrada";
+    setStatus(poll.aberta?"":"Votação encerrada");
     renderForm();renderLive();
-  },()=>{statusEl.textContent="Não foi possível carregar a votação."});
+  },()=>{setStatus("Não foi possível carregar a votação.")});
   fs.collection(`enquetes/${pollId}/votos`).onSnapshot(snap=>{
     votes=snap.docs.map(d=>({...d.data(),_id:d.id}));
     myVote=votes.find(v=>v._id===uid)||null;
     if(firstSnap&&myVote){pick={salgada:arr("salgada",myVote.salgada),doce:arr("doce",myVote.doce)};nome.value=myVote.nome||nome.value}
     if(!myVote&&!firstSnap&&!busy){/* voto excluído */}
     firstSnap=false;renderForm();renderLive();
-  },()=>{statusEl.textContent="Não foi possível carregar os votos."});
+  },()=>{setStatus("Não foi possível carregar os votos.")});
 }
 
 if(pollId)loadOrder();
@@ -552,17 +566,20 @@ try{const fo=new IntersectionObserver(es=>{for(const e of es)document.body.class
 try{const secs=["votar","placar","pedido"].map(id=>$(id));const io=new IntersectionObserver(es=>{for(const e of es)if(e.isIntersecting)document.querySelectorAll(".topbar a[data-sec]").forEach(a=>a.classList.toggle("cur",a.dataset.sec===e.target.id))},{rootMargin:"-40% 0px -55% 0px"});secs.forEach(s=>s&&io.observe(s))}catch(_){}
 renderForm();renderLive();
 if(!FIREBASE_CONFIG.apiKey||!FIREBASE_CONFIG.projectId||typeof firebase==="undefined"){
-  statusEl.textContent=typeof firebase==="undefined"?"Sem conexão com o Firebase. Verifique a internet.":"Configuração pendente: preencha FIREBASE_CONFIG no arquivo.";
+  setStatus(typeof firebase==="undefined"?"Sem conexão com o Firebase. Verifique a internet.":"Configuração pendente: preencha FIREBASE_CONFIG no arquivo.");
   if(pollId){$("poll").hidden=false}else renderHome();
 }else{
   firebase.initializeApp(FIREBASE_CONFIG);
   fs=firebase.firestore();
+  const A=firebase.auth.Auth.Persistence;
+  /* quem só vota: identidade some ao fechar a aba (nada fica no aparelho); quem criou votação: mantém para seguir como anfitrião */
+  const persist=firebase.auth().setPersistence(isHostDevice()?A.LOCAL:A.SESSION).catch(()=>{});
   firebase.auth().onAuthStateChanged(u=>{
     if(!u)return;
-    uid=u.uid;ready=true;statusEl.textContent="Conectado";
+    uid=u.uid;ready=true;setStatus("");
     if(pollId)startPoll();else renderHome();
   });
-  firebase.auth().signInAnonymously().catch(()=>{statusEl.textContent="Falha ao conectar. Ative o login Anônimo no Firebase."});
+  persist.then(()=>{if(!firebase.auth().currentUser)return firebase.auth().signInAnonymously()}).catch(()=>setStatus("Falha ao conectar. Verifique a internet e recarregue."));
 }
 }
 </script>
