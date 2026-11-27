@@ -2,7 +2,8 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2b1a12">
 <title>Pizzas – Funcional K</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;800&family=Paytone+One&display=swap" rel="stylesheet">
@@ -17,6 +18,7 @@
 --muted:light-dark(#6b5345,#c4ab95);--beige:#ead9c0;--acc:#d8452c;--bar:light-dark(#f3c96b,#c98f2a);--line:light-dark(#d9d2ca,#4a3226);--ok:light-dark(#23773d,#6fd08c)}
 :root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
 *{box-sizing:border-box;min-width:0}
+[hidden]{display:none!important}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Lexend,system-ui,sans-serif;overflow-x:clip;
 background-image:radial-gradient(circle at 10% 20%,rgba(234,217,192,.08) 0 2px,transparent 3px);background-size:38px 38px}
 header{padding:clamp(28px,5vw,52px) max(5vw,16px) 8px;text-align:center;color:var(--beige)}
@@ -91,6 +93,46 @@ pre{white-space:pre-wrap;font:14px/1.55 Lexend,sans-serif;background:#fff8ee;bor
 .wa{background:#1f8f4e!important}
 footer{text-align:center;color:#e9d6bf;font-size:13px;padding:0 16px 32px}
 @media(prefers-reduced-motion:reduce){.row .fill,.opt{transition:none}}
+
+/* ---------- celular ---------- */
+.mbar{display:none}
+@media(max-width:600px){
+  body{font-size:15px;padding-bottom:76px}
+  header{padding:18px 16px 4px}
+  h1{font-size:30px}
+  header p{font-size:14px;margin-top:6px}
+  .status{margin-top:8px}
+  main,.wrap{padding:12px 10px 32px;gap:14px}
+  .card{border-radius:20px;padding:16px 14px}
+  .side{gap:14px;border-radius:20px}
+  h2{font-size:24px}
+  .topbar{gap:4px;padding:8px 10px;justify-content:space-between}
+  .topbar a,.topbar button{padding:0 12px;font-size:14px;min-height:40px}
+  .topbar .lg{display:none}
+  .topbar a.home{padding:0 8px;font-size:18px}
+  .steps{gap:4px;margin-bottom:12px;font-size:12px}
+  .steps span{padding:4px 8px}
+  .opts{grid-template-columns:minmax(0,1fr);gap:6px}
+  .opt{position:relative;padding:10px 44px 10px 12px;min-height:56px;border-radius:12px}
+  .opt::after{content:"";position:absolute;right:12px;top:50%;width:22px;height:22px;margin-top:-11px;border:2px solid var(--line);border-radius:6px;background:transparent}
+  .opt[aria-pressed=true]::after{content:"✓";background:var(--acc);border-color:var(--acc);color:#fff;font:800 14px/18px Lexend,sans-serif;text-align:center}
+  .opt[aria-pressed=true] b::after{content:""}
+  .opt b{font-size:15px}
+  .opt small{font-size:12.5px}
+  .grp{margin:16px 0 6px;font-size:13px}
+  .ballot section+section,.finish{margin-top:20px;padding-top:18px}
+  .send,.ghost{min-height:50px;font-size:16px}
+  .btns{gap:8px}
+  .btns .send,.btns .ghost{flex:1 1 100%}
+  .voters{max-height:none}
+  .row{font-size:13.5px}
+  pre{font-size:13px;padding:12px}
+  .list li{flex-wrap:wrap}
+  .mbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:20;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:rgba(43,26,18,.96);color:var(--beige);font-size:14px;box-shadow:0 -6px 20px rgba(0,0,0,.25)}
+  .mbar[hidden],.atform .mbar{display:none!important}
+  .mgo{flex:none;display:inline-flex;align-items:center;min-height:44px;padding:0 18px;border-radius:12px;background:var(--acc);color:#fff;font-weight:800;text-decoration:none}
+  footer{padding-bottom:16px}
+}
 </style>
 <style>
 .wrap{max-width:720px;margin:0 auto;padding:20px max(5vw,16px) 56px}
@@ -159,10 +201,10 @@ const FIREBASE_CONFIG = {
 </script>
 
 <nav class="topbar" id="topbar" hidden aria-label="Navegação">
-  <a class="home" href="?">← Votações</a>
-  <a href="#votar" data-sec="votar">1. Votar</a>
-  <a href="#placar" data-sec="placar">2. Placar</a>
-  <a href="#pedido" data-sec="pedido">3. Resultado</a>
+  <a class="home" href="?" aria-label="Voltar para as votações">←<span class="lg"> Votações</span></a>
+  <a href="#votar" data-sec="votar">Votar</a>
+  <a href="#placar" data-sec="placar">Placar</a>
+  <a href="#pedido" data-sec="pedido">Resultado</a>
 </nav>
 <header>
   <h1 id="h1">Confraternização Funcional K</h1>
@@ -249,6 +291,10 @@ const FIREBASE_CONFIG = {
     </aside>
   </div>
 </main>
+<div class="mbar" id="mbar" hidden>
+  <span id="mcount">Nenhum sabor marcado</span>
+  <a href="#form" class="mgo" id="mgo">Registrar ↓</a>
+</div>
 <footer>Cada pessoa tem um voto por votação, e só quem votou pode alterá-lo.</footer>
 
 <script>
@@ -355,6 +401,10 @@ function renderForm(){
   add("Salgadas","salgada");p.append(document.createElement("br"));add("Doces","doce");
   const open=!!(poll&&poll.aberta);
   $("closed").hidden=!poll||open;
+  const nSel=pick.salgada.length+pick.doce.length;
+  $("mbar").hidden=!poll||!open;
+  $("mcount").textContent=nSel?`${nSel} ${nSel===1?"sabor marcado":"sabores marcados"}`:"Marque os sabores que você gosta";
+  $("mgo").textContent=myVote?"Alterar voto ↓":"Registrar ↓";
   const note=$("mine-note");
   if(myVote){
     note.hidden=false;
@@ -495,6 +545,7 @@ function startPoll(){
 }
 
 if(pollId)loadOrder();
+try{const fo=new IntersectionObserver(es=>{for(const e of es)document.body.classList.toggle("atform",e.isIntersecting)});fo.observe($("form"))}catch(_){}
 try{const secs=["votar","placar","pedido"].map(id=>$(id));const io=new IntersectionObserver(es=>{for(const e of es)if(e.isIntersecting)document.querySelectorAll(".topbar a[data-sec]").forEach(a=>a.classList.toggle("cur",a.dataset.sec===e.target.id))},{rootMargin:"-40% 0px -55% 0px"});secs.forEach(s=>s&&io.observe(s))}catch(_){}
 renderForm();renderLive();
 if(!FIREBASE_CONFIG.apiKey||!FIREBASE_CONFIG.projectId||typeof firebase==="undefined"){
