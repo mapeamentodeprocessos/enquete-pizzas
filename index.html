@@ -93,6 +93,9 @@ h3 span{color:var(--muted);font-weight:400;white-space:nowrap}
 .top12 li span{flex:1}
 .top12 li small{color:var(--muted);white-space:nowrap}
 .top12 li.tie small{color:var(--acc);font-weight:600}
+.top12 li.sep{counter-increment:none;display:block;padding:10px 0 4px;border:0;font:800 12px Lexend,sans-serif;color:var(--muted);text-transform:none}
+.top12 li.sep::before{content:none}
+#tieNote{white-space:pre-line}
 .order{background:var(--beige);color:#2b1a12}
 .order .q{color:#6b5345}
 .qty{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
@@ -275,7 +278,7 @@ const FIREBASE_CONFIG = {
       <p class="q" id="total">Ninguém votou ainda</p>
       <div class="top12">
         <h3>Os 12 sabores escolhidos <span id="t-top"></span></h3>
-        <p class="hint" style="margin:0 0 6px">Os 12 mais votados, somando salgadas e doces. Atualiza a cada voto.</p>
+        <p class="hint" style="margin:0 0 6px">9 salgadas + 3 doces, pelos mais votados de cada tipo. Atualiza a cada voto.</p>
         <ol id="top12"></ol>
         <p class="hint" id="tieNote" hidden></p>
       </div>
@@ -491,32 +494,61 @@ function renderLive(){
 
 /* ---------- exportar preferências ---------- */
 function loadOrder(){}
-const TOPN=12;
-function top12(T){
-  const all=[];
-  for(const k of ["salgada","doce"])for(const n of T[k].ranked)all.push({k,n,v:T[k].c[n]});
-  all.sort((a,b)=>b.v-a.v||a.n.localeCompare(b.n,"pt-BR"));
-  const top=all.slice(0,TOPN);
-  const cut=top.length===TOPN?top[TOPN-1].v:0;
-  const tied=cut?all.slice(TOPN).filter(x=>x.v===cut):[];
-  return {top,tied,cut};
+const TOPN=12,QUOTA={salgada:9,doce:3};
+/* ingredientes de cada sabor, para medir semelhança (muçarela e orégano estão em quase todos e não contam) */
+const ING={};
+const STOP=new Set(["muçarela","orégano","queijo","com","aos","de","do","da","e","um","delicioso","selecionado","selecionados","fatiado","fatiados","fatias","finas","em","cubos","desfiado","desfiada","assado","cremoso","gratinado","gratinados","pasta","rodelas","fio","salteada","dessalgada","defumada"]);
+const toks=s=>String(s).toLowerCase().replace(/[^a-zà-ú\s]/g," ").split(/\s+/).filter(w=>w.length>2&&!STOP.has(w));
+for(const k in POLLS)for(const g of POLLS[k])for(const [n,d] of g.i)ING[k+"|"+n]=new Set([...toks(n),...toks(d)]);
+function simil(a,b){const A=ING[a],B=ING[b];if(!A||!B||!A.size||!B.size)return 0;let i=0;for(const x of A)if(B.has(x))i++;return i/(A.size+B.size-i)}
+function pickType(k,T,slots,chosenKeys){
+  const rest=T[k].ranked.map(n=>({k,n,v:T[k].c[n]}));
+  const out=[],ties=[];
+  while(out.length<slots&&rest.length){
+    const v=rest[0].v,grp=rest.filter(x=>x.v===v),free=slots-out.length;
+    if(grp.length<=free){grp.sort((a,b)=>a.n.localeCompare(b.n,"pt-BR"));for(const x of grp){out.push(x);chosenKeys.push(k+"|"+x.n);rest.splice(rest.indexOf(x),1)}continue}
+    /* empate na última vaga do tipo: entra o menos parecido com o que já foi escolhido */
+    const cand=grp.slice(),won=[];
+    for(let i=0;i<free;i++){
+      cand.forEach(x=>{x.sim=chosenKeys.length?Math.max(...chosenKeys.map(c=>simil(k+"|"+x.n,c))):0});
+      cand.sort((a,b)=>a.sim-b.sim||a.n.localeCompare(b.n,"pt-BR"));
+      const w=cand.shift();w.tie=true;won.push(w);out.push(w);chosenKeys.push(k+"|"+w.n);
+    }
+    ties.push({k,v,vagas:free,won:won.map(x=>x.n),lost:cand.map(x=>x.n)});
+    break;
+  }
+  return {out,ties};
 }
+function top12(T){
+  const avS=T.salgada.ranked.length,avD=T.doce.ranked.length;
+  let d=Math.min(QUOTA.doce,avD),s=Math.min(TOPN-d,avS);d=Math.min(TOPN-s,avD);
+  const chosen=[];
+  const S=pickType("salgada",T,s,chosen),D=pickType("doce",T,d,chosen);
+  return {sal:S.out,doc:D.out,ties:[...S.ties,...D.ties],s,d,total:S.out.length+D.out.length};
+}
+const CRIT="Critério de desempate: são 9 salgadas + 3 doces (se faltar sabor votado de um tipo, a vaga passa para o outro). Os mais votados de cada tipo entram primeiro; havendo empate na última vaga de um tipo, entra o sabor menos parecido com os já escolhidos (compara os ingredientes). Se ainda assim empatar, vale a ordem alfabética.";
+function tieLines(ties){return ties.map(x=>`Empate entre as ${x.k==="salgada"?"salgadas":"doces"} com ${x.v} ${x.v===1?"voto":"votos"} para ${x.vagas} ${x.vagas===1?"vaga":"vagas"}: ${x.won.length===1?"entrou":"entraram"} ${x.won.join(", ")} (mais ${x.won.length===1?"diferente":"diferentes"} dos já escolhidos); ${x.lost.length===1?"ficou de fora":"ficaram de fora"} ${x.lost.join(", ")}.`)}
 function renderOrder(T){
-  const {top,tied,cut}=top12(T);
+  const R=top12(T);
   /* quadro dos 12 no placar */
   const ol=$("top12");ol.textContent="";
-  $("t-top").textContent=`${top.length}/${TOPN}`;
-  if(!top.length){const li=document.createElement("li");li.className="empty";li.textContent="Aparecem aqui conforme a turma vota.";ol.append(li)}
-  for(const x of top){
-    const li=document.createElement("li");if(tied.length&&x.v===cut)li.className="tie";
-    const a=document.createElement("span");a.textContent=`${x.n} (${x.k==="salgada"?"salgada":"doce"})`;
-    const b=document.createElement("small");b.textContent=`${x.v} ${x.v===1?"voto":"votos"}`;
-    li.append(a,b);ol.append(li);
+  $("t-top").textContent=`${R.total}/${TOPN}`;
+  if(!R.total){const li=document.createElement("li");li.className="empty";li.textContent="Aparecem aqui conforme a turma vota.";ol.append(li)}
+  for(const [lab,arr] of [[`Salgadas (${R.sal.length}/${R.s||QUOTA.salgada})`,R.sal],[`Doces (${R.doc.length}/${R.d||QUOTA.doce})`,R.doc]]){
+    if(!arr.length)continue;
+    const h=document.createElement("li");h.className="sep";h.textContent=lab;ol.append(h);
+    for(const x of arr){
+      const li=document.createElement("li");if(x.tie)li.className="tie";
+      const a=document.createElement("span");a.textContent=x.n+(x.tie?" *":"");
+      const b=document.createElement("small");b.textContent=`${x.v} ${x.v===1?"voto":"votos"}`;
+      li.append(a,b);ol.append(li);
+    }
   }
   const tn=$("tieNote");
-  if(tied.length){tn.hidden=false;tn.textContent=`Empate na 12ª vaga: ${tied.map(x=>x.n).join(", ")} também ${tied.length===1?"tem":"têm"} ${cut} ${cut===1?"voto":"votos"}. Os destacados podem ser trocados por ${tied.length===1?"ele":"eles"}.`}
-  else if(top.length&&top.length<TOPN){tn.hidden=false;tn.textContent=`Até agora ${top.length} ${top.length===1?"sabor recebeu":"sabores receberam"} votos. Faltam ${TOPN-top.length} para completar os 12.`}
-  else tn.hidden=true;
+  const notes=[];
+  if(R.total&&R.total<TOPN)notes.push(`Até agora ${R.total} ${R.total===1?"sabor recebeu":"sabores receberam"} votos. Faltam ${TOPN-R.total} para completar os 12.`);
+  if(R.ties.length)notes.push("* Entrou pelo desempate.",...tieLines(R.ties),CRIT);
+  tn.hidden=!notes.length;tn.textContent=notes.join("\n");
 
   /* mensagem para o WhatsApp */
   const L=[`🍕 *Preferências de pizza${poll&&poll.titulo?" – "+poll.titulo:""}*`,`${votes.length} ${votes.length===1?"pessoa votou":"pessoas votaram"}`,""];
@@ -528,11 +560,16 @@ function renderOrder(T){
     r.forEach((nm,i)=>L.push(`${i+1}. ${nm} – ${T[k].c[nm]} ${T[k].c[nm]===1?"voto":"votos"}`));
     L.push("");
   }
-  L.push("━━━━━━━━━━━━━━",`🏆 *OS ${TOPN} SABORES MAIS VOTADOS*`,`_Atualizado em ${new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}_`);
-  if(!top.length)L.push("— ainda sem votos");
-  top.forEach((x,i)=>L.push(`${i+1}. ${x.n} (${x.k==="salgada"?"salgada":"doce"}) – ${x.v} ${x.v===1?"voto":"votos"}`));
-  if(tied.length)L.push("",`⚠️ Empate na 12ª vaga com ${cut} ${cut===1?"voto":"votos"}: ${tied.map(x=>x.n).join(", ")}.`);
-  else if(top.length&&top.length<TOPN)L.push("",`(${top.length} de ${TOPN} sabores definidos até agora)`);
+  L.push("━━━━━━━━━━━━━━",`🏆 *OS ${TOPN} SABORES ESCOLHIDOS*`,`_Atualizado em ${new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}_`);
+  if(!R.total)L.push("— ainda sem votos");
+  let i=0;
+  for(const [lab,arr] of [["Salgadas",R.sal],["Doces",R.doc]]){
+    if(!arr.length)continue;
+    L.push("",`*${lab} (${arr.length})*`);
+    arr.forEach(x=>L.push(`${++i}. ${x.n} – ${x.v} ${x.v===1?"voto":"votos"}${x.tie?" *":""}`));
+  }
+  if(R.total&&R.total<TOPN)L.push("",`(${R.total} de ${TOPN} sabores definidos até agora)`);
+  if(R.ties.length){L.push("","_* Entrou pelo desempate._");tieLines(R.ties).forEach(x=>L.push(`⚖️ ${x}`));L.push("",`_${CRIT}_`)}
   const txt=L.join("\n").trim();
   $("orderText").textContent=txt;
   $("wa").href="https://wa.me/?text="+encodeURIComponent(txt);
