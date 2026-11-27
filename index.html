@@ -520,6 +520,8 @@ function renderOrder(T){
 
   /* mensagem para o WhatsApp */
   const L=[`🍕 *Preferências de pizza${poll&&poll.titulo?" – "+poll.titulo:""}*`,`${votes.length} ${votes.length===1?"pessoa votou":"pessoas votaram"}`,""];
+  const quem=votes.slice().sort((a,b)=>(+a.t||0)-(+b.t||0)).map(v=>String(v.nome||"Anônimo").trim().slice(0,40)).filter(Boolean);
+  if(quem.length){L.push("👥 *Quem votou:*");quem.forEach((n,i)=>L.push(`${i+1}. ${n}`));L.push("")}
   for(const [k,lab] of [["salgada","*Salgadas*"],["doce","*Doces*"]]){
     L.push(lab);const r=T[k].ranked;
     if(!r.length)L.push("— sem votos");
