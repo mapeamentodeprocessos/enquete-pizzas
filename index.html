@@ -569,7 +569,7 @@ function renderOrder(T){
     arr.forEach(x=>L.push(`${++i}. ${x.n} – ${x.v} ${x.v===1?"voto":"votos"}${x.tie?" *":""}`));
   }
   if(R.total&&R.total<TOPN)L.push("",`(${R.total} de ${TOPN} sabores definidos até agora)`);
-  if(R.ties.length){L.push("","_* Entrou pelo desempate._");tieLines(R.ties).forEach(x=>L.push(`⚖️ ${x}`));L.push("",`_${CRIT}_`)}
+  if(R.ties.length){L.push("","_* Entrou pelo desempate._");tieLines(R.ties).forEach(x=>L.push(`⚖️ ${x}`))}
   const txt=L.join("\n").trim();
   $("orderText").textContent=txt;
   $("wa").href="https://wa.me/?text="+encodeURIComponent(txt);
