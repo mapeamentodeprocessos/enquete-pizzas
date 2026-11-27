@@ -19,11 +19,14 @@
 :root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
 *{box-sizing:border-box;min-width:0}
 [hidden]{display:none!important}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Lexend,system-ui,sans-serif;overflow-x:clip;
-background-image:radial-gradient(circle at 10% 20%,rgba(234,217,192,.08) 0 2px,transparent 3px);background-size:38px 38px}
-header{padding:clamp(28px,5vw,52px) max(5vw,16px) 8px;text-align:center;color:var(--beige)}
+body{margin:0;background:#3a2219;color:var(--ink);font:16px/1.5 Lexend,system-ui,sans-serif;overflow-x:clip}
+body::before,body::after{content:"";position:fixed;inset:0;pointer-events:none}
+body::before{z-index:-2;background:#3a2219 url(bg.webp) 72% 12%/cover no-repeat}
+body::after{z-index:-1;background:linear-gradient(180deg,rgba(43,26,18,.25) 0,rgba(43,26,18,.55) 34%,rgba(58,34,25,.9) 62%,rgba(58,34,25,.95) 100%)}
+@media(min-width:861px){body::before{background-position:right 12%;background-size:auto 100%}body::after{background:linear-gradient(90deg,rgba(58,34,25,.96) 0,rgba(58,34,25,.9) 45%,rgba(58,34,25,.55) 70%,rgba(43,26,18,.25) 100%)}}
+header{padding:clamp(28px,5vw,52px) max(5vw,16px) 8px;text-align:center;color:var(--beige);text-shadow:0 2px 10px rgba(0,0,0,.55)}
 h1{font:400 clamp(32px,7vw,54px)/1.05 "Paytone One",sans-serif;margin:0;text-wrap:balance}
-header p{margin:10px auto 0;max-width:58ch;color:#e9d6bf}
+header p{margin:10px auto 0;max-width:58ch;color:#f3e6d3}
 .status{display:inline-block;margin-top:12px;font-size:13px;padding:6px 14px;border-radius:99px;background:rgba(0,0,0,.22);color:var(--beige)}
 .jump{display:none;margin:10px auto 0;color:var(--beige);font-size:14px}
 main{max-width:1240px;margin:0 auto;padding:20px max(5vw,16px) 56px;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:24px;align-items:start}
@@ -98,7 +101,7 @@ footer{text-align:center;color:#e9d6bf;font-size:13px;padding:0 16px 32px}
 .mbar{display:none}
 @media(max-width:600px){
   body{font-size:15px;padding-bottom:76px}
-  header{padding:18px 16px 4px}
+  header{padding:230px 16px 6px}
   h1{font-size:30px}
   header p{font-size:14px;margin-top:6px}
   .status{margin-top:8px}
