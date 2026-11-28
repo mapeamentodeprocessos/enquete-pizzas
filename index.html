@@ -96,6 +96,11 @@ h3 span{color:var(--muted);font-weight:400;white-space:nowrap}
 .top12 li.sep{counter-increment:none;display:block;padding:10px 0 4px;border:0;font:800 12px Lexend,sans-serif;color:var(--muted);text-transform:none}
 .top12 li.sep::before{content:none}
 #tieNote{white-space:pre-line}
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;align-items:start}
+.duo .top12{margin:14px 0 4px}
+.top12.alt{background:rgba(31,143,78,.08);border-color:rgba(31,143,78,.35)}
+.top12.alt li::before{color:#1f8f4e}
+.top12 li em{font-style:normal;font-size:12px;color:var(--muted)}
 .order{background:var(--beige);color:#2b1a12}
 .order .q{color:#6b5345}
 .qty{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
@@ -276,11 +281,19 @@ const FIREBASE_CONFIG = {
     <aside class="card" id="placar" aria-live="polite">
       <h2>Placar ao vivo</h2>
       <p class="q" id="total">Ninguém votou ainda</p>
+      <div class="duo">
       <div class="top12">
-        <h3>Os 12 sabores escolhidos <span id="t-top"></span></h3>
+        <h3>Pelo critério da votação <span id="t-top"></span></h3>
         <p class="hint" style="margin:0 0 6px">9 salgadas + 3 doces, pelos mais votados de cada tipo. Atualiza a cada voto.</p>
         <ol id="top12"></ol>
         <p class="hint" id="tieNote" hidden></p>
+      </div>
+      <div class="top12 alt">
+        <h3>Atendendo aos pedidos de todos <span>12/12</span></h3>
+        <p class="hint" style="margin:0 0 6px">Alternativa após reunir as vontades do grupo: 10 salgadas + 2 doces.</p>
+        <ol id="alt12"></ol>
+        <p class="hint" id="altNote"></p>
+      </div>
       </div>
       <h3>Salgadas <span id="t-salgada"></span></h3>
       <div id="r-salgada"></div>
@@ -495,6 +508,10 @@ function renderLive(){
 /* ---------- exportar preferências ---------- */
 function loadOrder(){}
 const TOPN=12,QUOTA={salgada:9,doce:3};
+/* alternativa definida após reunir os pedidos do grupo */
+const ALT={salgada:["Filé Mignon com Bacon","Camarão aos Quatro Queijos","Parma","Sertaneja","Pepperoni","Tomate Seco com Rúcula","Abacaxi com Gorgonzola","Lampião","Portuguesa","Frango com Requeijão"],doce:["Banana Mestre","Dois Amores"]};
+const ALTTAG={"Tomate Seco com Rúcula":"sem carne","Abacaxi com Gorgonzola":"sem carne"};
+const ALTNOTE="Considera o que foi combinado no grupo: 10 salgadas e no máximo 2 doces; opções sem carne (Tomate Seco com Rúcula e Abacaxi com Gorgonzola); e variedade entre as empatadas com 3 votos, evitando repetir bacon, frango e quatro queijos.";
 /* ingredientes de cada sabor, para medir semelhança (muçarela e orégano estão em quase todos e não contam) */
 const ING={};
 const STOP=new Set(["muçarela","orégano","queijo","com","aos","de","do","da","e","um","delicioso","selecionado","selecionados","fatiado","fatiados","fatias","finas","em","cubos","desfiado","desfiada","assado","cremoso","gratinado","gratinados","pasta","rodelas","fio","salteada","dessalgada","defumada"]);
@@ -549,6 +566,20 @@ function renderOrder(T){
   if(R.total&&R.total<TOPN)notes.push(`Até agora ${R.total} ${R.total===1?"sabor recebeu":"sabores receberam"} votos. Faltam ${TOPN-R.total} para completar os 12.`);
   if(R.ties.length)notes.push("* Entrou pelo desempate.",...tieLines(R.ties),CRIT);
   tn.hidden=!notes.length;tn.textContent=notes.join("\n");
+  /* quadro da alternativa */
+  const al=$("alt12");al.textContent="";
+  for(const [lab,k] of [["Salgadas (10)","salgada"],["Doces (2)","doce"]]){
+    const h=document.createElement("li");h.className="sep";h.textContent=lab;al.append(h);
+    for(const n of ALT[k]){
+      const v=T[k].c[n]||0;
+      const li=document.createElement("li");
+      const a=document.createElement("span");a.textContent=n;
+      if(ALTTAG[n]){const e=document.createElement("em");e.textContent=" ("+ALTTAG[n]+")";a.append(e)}
+      const b=document.createElement("small");b.textContent=`${v} ${v===1?"voto":"votos"}`;
+      li.append(a,b);al.append(li);
+    }
+  }
+  $("altNote").textContent=ALTNOTE;
 
   /* mensagem para o WhatsApp */
   const L=[`🍕 *Preferências de pizza${poll&&poll.titulo?" – "+poll.titulo:""}*`,`${votes.length} ${votes.length===1?"pessoa votou":"pessoas votaram"}`,""];
@@ -570,6 +601,13 @@ function renderOrder(T){
   }
   if(R.total&&R.total<TOPN)L.push("",`(${R.total} de ${TOPN} sabores definidos até agora)`);
   if(R.ties.length){L.push("","_* Entrou pelo desempate._");tieLines(R.ties).forEach(x=>L.push(`⚖️ ${x}`))}
+  L.push("","━━━━━━━━━━━━━━","🤝 *ALTERNATIVA – ATENDENDO AOS PEDIDOS DE TODOS*");
+  let j=0;
+  for(const [lab,k] of [["Salgadas (10)","salgada"],["Doces (2)","doce"]]){
+    L.push("",`*${lab}*`);
+    ALT[k].forEach(n=>{const v=T[k].c[n]||0;L.push(`${++j}. ${n} – ${v} ${v===1?"voto":"votos"}${ALTTAG[n]?" ("+ALTTAG[n]+")":""}`)});
+  }
+  L.push("",`_${ALTNOTE}_`);
   const txt=L.join("\n").trim();
   $("orderText").textContent=txt;
   $("wa").href="https://wa.me/?text="+encodeURIComponent(txt);
