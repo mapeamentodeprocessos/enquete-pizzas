@@ -106,6 +106,8 @@ h3 span{color:var(--muted);font-weight:400;white-space:nowrap}
 .indicado b{font-size:14px;line-height:1}
 @keyframes pulo{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
 @media(prefers-reduced-motion:reduce){.indicado{animation:none}}
+.shareimg{margin-top:12px}
+.shareimg .send,.shareimg .ghost{flex:1 1 160px;min-height:48px;font-size:15px}
 .top12 li em{font-style:normal;font-size:12px;color:var(--muted)}
 .order{background:var(--beige);color:#2b1a12}
 .order .q{color:#6b5345}
@@ -300,6 +302,11 @@ const FIREBASE_CONFIG = {
         <p class="hint" style="margin:0 0 6px">Alternativa após reunir as vontades do grupo: 10 salgadas + 2 doces.</p>
         <ol id="alt12"></ol>
         <p class="hint" id="altNote"></p>
+        <div class="btns shareimg">
+          <button class="send wa" id="shareImg" type="button">📷 Compartilhar imagem</button>
+          <button class="ghost" id="dlImg" type="button">Baixar imagem</button>
+        </div>
+        <div class="msg" id="imgMsg" role="status"></div>
       </div>
       </div>
       <h3>Salgadas <span id="t-salgada"></span></h3>
@@ -516,9 +523,9 @@ function renderLive(){
 function loadOrder(){}
 const TOPN=12,QUOTA={salgada:9,doce:3};
 /* alternativa definida após reunir os pedidos do grupo */
-const ALT={salgada:["Filé Mignon com Bacon","Camarão aos Quatro Queijos","Parma","Sertaneja","Pepperoni","Tomate Seco com Rúcula","Abacaxi com Gorgonzola","Lampião","Portuguesa","Marguerita"],doce:["Banana Mestre","Dois Amores"]};
-const ALTTAG={"Tomate Seco com Rúcula":"sem carne","Abacaxi com Gorgonzola":"sem carne","Marguerita":"sem carne"};
-const ALTNOTE="Considera o que foi combinado no grupo: 10 salgadas e no máximo 2 doces; opções sem carne (Tomate Seco com Rúcula, Abacaxi com Gorgonzola e Marguerita, pedida com ênfase por uma participante); e variedade entre as empatadas com 3 votos, evitando repetir bacon, frango e quatro queijos.";
+const ALT={salgada:["Filé Mignon com Bacon","Camarão aos Quatro Queijos","Parma","Sertaneja","Pepperoni","Tomate Seco com Rúcula","Abacaxi com Gorgonzola","Lampião","Portuguesa","Frango com Requeijão"],doce:["Banana Mestre","Dois Amores"]};
+const ALTTAG={"Tomate Seco com Rúcula":"sem carne","Abacaxi com Gorgonzola":"sem carne"};
+const ALTNOTE="Considera o que foi combinado no grupo: 10 salgadas e no máximo 2 doces; opções sem carne (Tomate Seco com Rúcula e Abacaxi com Gorgonzola); e variedade entre as empatadas com 3 votos, evitando repetir bacon, frango e quatro queijos.";
 /* ingredientes de cada sabor, para medir semelhança (muçarela e orégano estão em quase todos e não contam) */
 const ING={};
 const STOP=new Set(["muçarela","orégano","queijo","com","aos","de","do","da","e","um","delicioso","selecionado","selecionados","fatiado","fatiados","fatias","finas","em","cubos","desfiado","desfiada","assado","cremoso","gratinado","gratinados","pasta","rodelas","fio","salteada","dessalgada","defumada"]);
@@ -552,7 +559,9 @@ function top12(T){
 }
 const CRIT="Critério de desempate: são 9 salgadas + 3 doces (se faltar sabor votado de um tipo, a vaga passa para o outro). Os mais votados de cada tipo entram primeiro; havendo empate na última vaga de um tipo, entra o sabor menos parecido com os já escolhidos (compara os ingredientes). Se ainda assim empatar, vale a ordem alfabética.";
 function tieLines(ties){return ties.map(x=>`Empate entre as ${x.k==="salgada"?"salgadas":"doces"} com ${x.v} ${x.v===1?"voto":"votos"} para ${x.vagas} ${x.vagas===1?"vaga":"vagas"}: ${x.won.length===1?"entrou":"entraram"} ${x.won.join(", ")} (mais ${x.won.length===1?"diferente":"diferentes"} dos já escolhidos); ${x.lost.length===1?"ficou de fora":"ficaram de fora"} ${x.lost.join(", ")}.`)}
+let lastT=null;
 function renderOrder(T){
+  lastT=T;
   const R=top12(T);
   /* quadro dos 12 no placar */
   const ol=$("top12");ol.textContent="";
@@ -624,6 +633,54 @@ async function copyText(text,el,okMsg){
   try{await navigator.clipboard.writeText(text);say(el,"ok",okMsg)}
   catch(_){say(el,"","Não foi possível copiar automaticamente: "+text)}
 }
+/* ---------- imagem do resultado (para WhatsApp, Instagram etc.) ---------- */
+let bgImg=null;
+function loadBg(){return bgImg?Promise.resolve(bgImg):new Promise(res=>{const i=new Image();i.onload=()=>{bgImg=i;res(i)};i.onerror=()=>res(null);i.src="bg.webp"})}
+async function makeImage(){
+  try{await document.fonts.ready}catch(_){}
+  const T=lastT||{salgada:{c:{}},doce:{c:{}}};
+  const W=1080,H=1350,c=document.createElement("canvas");c.width=W;c.height=H;const x=c.getContext("2d");
+  x.fillStyle="#3a2219";x.fillRect(0,0,W,H);
+  const im=await loadBg();
+  if(im){x.save();x.beginPath();x.rect(0,0,W,560);x.clip();const s=W/im.width;x.globalAlpha=.6;x.drawImage(im,0,-60,W,im.height*s);x.restore();x.globalAlpha=1}
+  const g=x.createLinearGradient(0,0,0,560);g.addColorStop(0,"rgba(43,26,18,.45)");g.addColorStop(.55,"rgba(58,34,25,.75)");g.addColorStop(1,"rgba(58,34,25,1)");x.fillStyle=g;x.fillRect(0,0,W,560);
+  x.textAlign="center";x.fillStyle="#ead9c0";
+  x.font="44px 'Paytone One',sans-serif";x.fillText("🍕 Confraternização Funcional K",W/2,120);
+  x.font="800 30px Lexend,sans-serif";x.fillStyle="#ff6a3d";x.fillText("OS 12 SABORES ESCOLHIDOS",W/2,175);
+  /* cartão */
+  const cx=70,cy=230,cw=W-140,ch=H-300;
+  x.fillStyle="#efece8";x.beginPath();x.roundRect?x.roundRect(cx,cy,cw,ch,36):x.rect(cx,cy,cw,ch);x.fill();
+  x.textAlign="left";let y=cy+80;const col=n=>T.salgada.c[n]!=null?T.salgada.c[n]:(T.doce.c[n]||0);
+  const block=(lab,list,start)=>{
+    x.fillStyle="#d8452c";x.font="800 28px Lexend,sans-serif";x.fillText(lab,cx+50,y);y+=22;
+    list.forEach((n,i)=>{
+      y+=62;x.fillStyle="#1f8f4e";x.font="800 32px Lexend,sans-serif";x.fillText((start+i)+"º",cx+50,y);
+      x.fillStyle="#2b1a12";x.font="600 32px Lexend,sans-serif";let nm=n+(ALTTAG[n]?" 🌱":"");x.fillText(nm,cx+130,y);
+      const v=col(n);x.textAlign="right";x.fillStyle="#6b5345";x.font="26px Lexend,sans-serif";x.fillText(v+(v===1?" voto":" votos"),cx+cw-50,y);x.textAlign="left";
+      x.strokeStyle="#d9d2ca";x.setLineDash([6,6]);x.beginPath();x.moveTo(cx+50,y+20);x.lineTo(cx+cw-50,y+20);x.stroke();x.setLineDash([]);
+    });
+    y+=70;
+  };
+  block("SALGADAS",ALT.salgada,1);block("DOCES",ALT.doce,ALT.salgada.length+1);
+  x.fillStyle="#6b5345";x.font="24px Lexend,sans-serif";x.fillText("🌱 sem carne",cx+50,y-10);
+  x.textAlign="center";x.fillStyle="#ead9c0";x.font="26px Lexend,sans-serif";
+  const quando=new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+  x.fillText(`${votes.length} ${votes.length===1?"pessoa votou":"pessoas votaram"} · atualizado em ${quando}`,W/2,H-28);
+  return new Promise(res=>c.toBlob(b=>res(b),"image/png"));
+}
+async function shareImage(){
+  const m=$("imgMsg");say(m,"","Gerando imagem…");
+  const blob=await makeImage();if(!blob){say(m,"err","Não foi possível gerar a imagem.");return}
+  const file=new File([blob],"pizzas-funcional-k.png",{type:"image/png"});
+  try{
+    if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:"Pizzas – Confraternização Funcional K",text:"🍕 Os 12 sabores escolhidos – Confraternização Funcional K"});say(m,"ok","Pronto! Escolha WhatsApp, Instagram ou outro app.");return}
+  }catch(e){if(e&&e.name==="AbortError"){say(m,"","");return}}
+  downloadBlob(blob);say(m,"ok","Imagem baixada. Agora é só anexar no WhatsApp, Instagram ou onde quiser.");
+}
+function downloadBlob(blob){const u=URL.createObjectURL(blob);const a=document.createElement("a");a.href=u;a.download="pizzas-funcional-k.png";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000)}
+$("shareImg").addEventListener("click",shareImage);
+$("dlImg").addEventListener("click",async()=>{const b=await makeImage();if(b){downloadBlob(b);say($("imgMsg"),"ok","Imagem baixada.")}});
+
 $("copy").addEventListener("click",()=>copyText($("orderText").textContent,$("copyMsg"),"Mensagem copiada! Agora é só colar na conversa com a pizzaria."));
 $("share").addEventListener("click",()=>copyText(linkFor(pollId),$("copyMsg"),"Link copiado! Mande para os convidados."));
 $("toggle").addEventListener("click",async()=>{
