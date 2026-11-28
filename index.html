@@ -100,6 +100,12 @@ h3 span{color:var(--muted);font-weight:400;white-space:nowrap}
 .duo .top12{margin:14px 0 4px}
 .top12.alt{background:rgba(31,143,78,.08);border-color:rgba(31,143,78,.35)}
 .top12.alt li::before{color:#1f8f4e}
+.top12.alt{position:relative;margin-top:30px!important;border-color:#ee4d2d;box-shadow:0 0 0 3px rgba(238,77,45,.15)}
+.indicado{position:absolute;top:-16px;right:12px;display:inline-flex;align-items:center;gap:6px;padding:5px 12px 5px 10px;border-radius:6px 6px 6px 0;background:linear-gradient(135deg,#ff6a3d,#ee4d2d);color:#fff;font:800 12px/1 Lexend,sans-serif;letter-spacing:.3px;box-shadow:0 4px 10px rgba(238,77,45,.35);animation:pulo 1.6s ease-in-out infinite}
+.indicado::after{content:"";position:absolute;left:0;bottom:-7px;border-left:8px solid #b83a20;border-bottom:7px solid transparent}
+.indicado b{font-size:14px;line-height:1}
+@keyframes pulo{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@media(prefers-reduced-motion:reduce){.indicado{animation:none}}
 .top12 li em{font-style:normal;font-size:12px;color:var(--muted)}
 .order{background:var(--beige);color:#2b1a12}
 .order .q{color:#6b5345}
@@ -289,6 +295,7 @@ const FIREBASE_CONFIG = {
         <p class="hint" id="tieNote" hidden></p>
       </div>
       <div class="top12 alt">
+        <span class="indicado" aria-label="Opção indicada"><b>👉</b> INDICADO</span>
         <h3>Atendendo aos pedidos de todos <span>12/12</span></h3>
         <p class="hint" style="margin:0 0 6px">Alternativa após reunir as vontades do grupo: 10 salgadas + 2 doces.</p>
         <ol id="alt12"></ol>
@@ -509,9 +516,9 @@ function renderLive(){
 function loadOrder(){}
 const TOPN=12,QUOTA={salgada:9,doce:3};
 /* alternativa definida após reunir os pedidos do grupo */
-const ALT={salgada:["Filé Mignon com Bacon","Camarão aos Quatro Queijos","Parma","Sertaneja","Pepperoni","Tomate Seco com Rúcula","Abacaxi com Gorgonzola","Lampião","Portuguesa","Frango com Requeijão"],doce:["Banana Mestre","Dois Amores"]};
-const ALTTAG={"Tomate Seco com Rúcula":"sem carne","Abacaxi com Gorgonzola":"sem carne"};
-const ALTNOTE="Considera o que foi combinado no grupo: 10 salgadas e no máximo 2 doces; opções sem carne (Tomate Seco com Rúcula e Abacaxi com Gorgonzola); e variedade entre as empatadas com 3 votos, evitando repetir bacon, frango e quatro queijos.";
+const ALT={salgada:["Filé Mignon com Bacon","Camarão aos Quatro Queijos","Parma","Sertaneja","Pepperoni","Tomate Seco com Rúcula","Abacaxi com Gorgonzola","Lampião","Portuguesa","Marguerita"],doce:["Banana Mestre","Dois Amores"]};
+const ALTTAG={"Tomate Seco com Rúcula":"sem carne","Abacaxi com Gorgonzola":"sem carne","Marguerita":"sem carne"};
+const ALTNOTE="Considera o que foi combinado no grupo: 10 salgadas e no máximo 2 doces; opções sem carne (Tomate Seco com Rúcula, Abacaxi com Gorgonzola e Marguerita, pedida com ênfase por uma participante); e variedade entre as empatadas com 3 votos, evitando repetir bacon, frango e quatro queijos.";
 /* ingredientes de cada sabor, para medir semelhança (muçarela e orégano estão em quase todos e não contam) */
 const ING={};
 const STOP=new Set(["muçarela","orégano","queijo","com","aos","de","do","da","e","um","delicioso","selecionado","selecionados","fatiado","fatiados","fatias","finas","em","cubos","desfiado","desfiada","assado","cremoso","gratinado","gratinados","pasta","rodelas","fio","salteada","dessalgada","defumada"]);
